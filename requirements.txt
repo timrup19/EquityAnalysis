@@ -1,0 +1,21 @@
+# Portfolio Intelligence System — Phase 1 & Phase 2 Dependencies
+
+# Database
+psycopg2-binary>=2.9
+sqlalchemy>=2.0
+
+# Data ingestion (Phase 1)
+yfinance>=0.2
+requests>=2.31
+pandas>=2.1
+python-dotenv>=1.0
+
+# Graph layer
+networkx>=3.2
+
+# AI extraction pipeline (Phase 2)
+anthropic>=0.39
+
+# Numerical / statistical
+numpy>=1.26
+scipy>=1.12
