@@ -61,11 +61,12 @@ def traverse_upstream(G, company_id, max_depth=3):
         dict: {node_id: path_length} for all ancestors within max_depth.
     """
     ancestors = nx.ancestors(G, company_id)
-    return {
-        n: nx.shortest_path_length(G, n, company_id)
-        for n in ancestors
-        if nx.shortest_path_length(G, n, company_id) <= max_depth
-    }
+    result = {}
+    for n in ancestors:
+        dist = nx.shortest_path_length(G, n, company_id)
+        if dist <= max_depth:
+            result[n] = dist
+    return result
 
 
 def find_bottlenecks(G, threshold=6.0):
