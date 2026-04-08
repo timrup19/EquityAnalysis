@@ -26,6 +26,13 @@ from graph.build import build_graph
 load_dotenv()
 
 
+def _to_python(val):
+    """Convert numpy scalar types to native Python types for psycopg2."""
+    if hasattr(val, 'item'):
+        return val.item()
+    return val
+
+
 # ── Individual scoring functions ─────────────────────────────────────────────
 
 def bottleneck_score(company_id, G):
@@ -204,14 +211,14 @@ def run_all_scores(conn):
     rows = []
 
     for _, company in companies_df.iterrows():
-        cid = company.id
+        cid = _to_python(company.id)
         bn = bottleneck_score(cid, G)
         cr = concentration_risk(cid, edges_df)
         pp = pricing_power_score(cid, edges_df, financials_df)
         ud = upstream_demand_score(cid, G, signals_df)
         comp = composite_sc_score(bn, cr, pp, ud)
 
-        rows.append((cid, today, bn, cr, pp, ud, comp))
+        rows.append(tuple(_to_python(v) for v in (cid, today, bn, cr, pp, ud, comp)))
 
     # Write to company_scores (upsert on unique company_id + score_date)
     cur = conn.cursor()
@@ -236,3 +243,24 @@ def run_all_scores(conn):
     cur.close()
     print(f"Scored {len(rows)} companies for {today}.")
     return len(rows)
+
+
+# ── CLI entry point ──────────────────────────────────────────────────────────
+
+def main():
+    """Run all supply chain scores from the command line.
+
+    Usage:
+        python -m graph.metrics
+    """
+    import os
+    import psycopg2 as pg2
+    conn = pg2.connect(os.environ["DATABASE_URL"])
+    try:
+        run_all_scores(conn)
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

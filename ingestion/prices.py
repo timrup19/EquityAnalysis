@@ -16,6 +16,7 @@ import os
 import argparse
 from datetime import date, timedelta
 
+import pandas as pd
 import yfinance as yf
 import psycopg2
 from dotenv import load_dotenv
@@ -71,13 +72,31 @@ def upsert_prices(cur, company_id, ticker, rows):
 
 # ── yfinance Download ────────────────────────────────────────────────────────
 
+def _clean_float(val, decimals=4):
+    """Return rounded float or None if NaN/missing."""
+    if pd.isna(val):
+        return None
+    return round(float(val), decimals)
+
+
+def _clean_int(val):
+    """Return int or None if NaN/missing."""
+    if pd.isna(val):
+        return None
+    return int(val)
+
+
 def fetch_prices(ticker, start_date, end_date):
     """Download OHLCV from yfinance. Returns list of tuples:
     (date, open, high, low, close, volume, market_cap)
     """
     yf_ticker = yf.Ticker(ticker)
 
-    # Get market cap (current snapshot — yfinance doesn't provide historical market cap)
+    # WARNING: market_cap is today's snapshot applied to ALL historical rows.
+    # yfinance does not provide point-in-time historical market cap.
+    # Do NOT use this field for valuation scoring — it will be inaccurate
+    # for any date other than today. Replace with a fundamentals provider
+    # (e.g. Polygon.io) for historical market cap when available.
     info = yf_ticker.info or {}
     market_cap = info.get("marketCap")
 
@@ -89,11 +108,11 @@ def fetch_prices(ticker, start_date, end_date):
     for idx, r in hist.iterrows():
         rows.append((
             idx.date(),
-            round(r["Open"], 4) if r["Open"] == r["Open"] else None,
-            round(r["High"], 4) if r["High"] == r["High"] else None,
-            round(r["Low"], 4) if r["Low"] == r["Low"] else None,
-            round(r["Close"], 4) if r["Close"] == r["Close"] else None,
-            int(r["Volume"]) if r["Volume"] == r["Volume"] else None,
+            _clean_float(r["Open"]),
+            _clean_float(r["High"]),
+            _clean_float(r["Low"]),
+            _clean_float(r["Close"]),
+            _clean_int(r["Volume"]),
             market_cap,
         ))
     return rows

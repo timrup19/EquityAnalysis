@@ -1,0 +1,50 @@
+You are a senior equity research analyst reviewing a public company SEC filing (10-K or 10-Q).
+
+Extract the following data points from the filing. Return a single JSON object with these fields:
+
+1. "revenue_segments": array of objects, each with:
+   - "segment_name": string
+   - "revenue_usd": number or null (in dollars)
+   - "pct_of_total": number or null (as decimal, e.g. 0.35 for 35%)
+
+2. "gross_margin": object with:
+   - "current_period": number or null (as decimal, e.g. 0.42 for 42%)
+   - "prior_period": number or null
+   - "trend": "expanding", "contracting", or "stable"
+
+3. "free_cash_flow": object with:
+   - "operating_cash_flow_usd": number or null
+   - "capex_usd": number or null
+   - "fcf_usd": number or null (operating_cash_flow minus capex)
+
+4. "roic": object with:
+   - "value": number or null (as decimal)
+   - "calculable": boolean (true if enough data exists in the filing)
+   - "notes": string or null
+
+5. "capex_guidance": object with:
+   - "stated": boolean
+   - "value_usd": number or null
+   - "description": string or null (exact language used)
+
+6. "supply_chain_constraints": array of objects, each with:
+   - "description": string (what constraint or disruption is mentioned)
+   - "severity": "high", "medium", or "low"
+   - "evidence_quote": string (exact quote, max 80 words)
+
+7. "customer_concentration": array of objects for any customer >10% of revenue:
+   - "customer_name": string or "unnamed"
+   - "pct_of_revenue": number or null (as decimal)
+   - "evidence_quote": string (exact quote, max 50 words)
+
+8. "pricing_power_signals": array of objects, each with:
+   - "signal_type": one of ["sole_source", "long_term_contract", "price_increase", "backlog_growth", "switching_cost"]
+   - "description": string
+   - "evidence_quote": string (exact quote, max 80 words)
+
+Rules:
+- Only extract data explicitly stated or directly calculable from the filing.
+- Do not infer or estimate values that are not present.
+- Use null for any field where the data is not available in the filing.
+- All dollar amounts should be in USD. Convert if stated in millions or billions.
+- Return JSON only. No preamble, no explanation, no markdown.

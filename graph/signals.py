@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from graph.build import build_graph, traverse_upstream
 from graph.metrics import (
+    _to_python,
     bottleneck_score,
     concentration_risk,
     pricing_power_score,
@@ -111,7 +112,7 @@ def traverse_upstream_from_event(conn, company_id):
                 upstream_demand_score = EXCLUDED.upstream_demand_score,
                 composite_sc_score    = EXCLUDED.composite_sc_score
             """,
-            (upstream_id, today, bn, cr, pp, ud, comp),
+            tuple(_to_python(v) for v in (upstream_id, today, bn, cr, pp, ud, comp)),
         )
 
         # Alert if composite crosses threshold

@@ -60,6 +60,96 @@ CREATE TABLE prices (
 );
 
 -- ============================================================
+-- EIA series data (grid & energy macro indicators)
+-- Added for Phase 1 ingestion pipeline.
+-- ============================================================
+CREATE TABLE eia_series (
+    id                  SERIAL PRIMARY KEY,
+    series_id           VARCHAR(100) NOT NULL,       -- e.g. 'ELEC.SALES.US-ALL.A'
+    series_name         VARCHAR(255),
+    period              VARCHAR(20) NOT NULL,         -- e.g. '2024' for annual, '2024-06' for monthly
+    value               FLOAT,
+    units               VARCHAR(100),
+    updated_at          TIMESTAMP DEFAULT NOW(),
+    UNIQUE(series_id, period)
+);
+
+-- ============================================================
+-- Filing extractions (AI-extracted structured data from filings)
+-- Added for Phase 2 AI extraction pipeline.
+-- ============================================================
+CREATE TABLE filing_extractions (
+    id                  SERIAL PRIMARY KEY,
+    filing_id           INTEGER NOT NULL REFERENCES filings(id),
+    extraction_type     VARCHAR(50) NOT NULL,        -- 'fundamental', 'supply_chain'
+    extracted_json      JSONB NOT NULL,
+    model_used          VARCHAR(50),                 -- e.g. 'claude-sonnet-4-6'
+    tokens_used         INTEGER,                     -- total tokens (input + output)
+    created_at          TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- Financials (structured data from AI fundamental extraction)
+-- Populated by ai_agent/parser.py extract_financials_row().
+-- ============================================================
+CREATE TABLE financials (
+    id                  SERIAL PRIMARY KEY,
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    ticker              VARCHAR(10),
+    period              DATE,                        -- period_of_report from filing
+    period_type         VARCHAR(10) NOT NULL,        -- 'annual' or 'quarterly'
+    revenue             FLOAT,
+    gross_profit        FLOAT,
+    gross_margin        FLOAT,                       -- as decimal, e.g. 0.42
+    operating_income    FLOAT,
+    net_income          FLOAT,
+    free_cash_flow      FLOAT,
+    roic                FLOAT,                       -- as decimal
+    capex               FLOAT,
+    shares_outstanding  BIGINT,
+    filed_date          DATE,
+    created_at          TIMESTAMP DEFAULT NOW(),
+    UNIQUE(company_id, period, period_type)
+);
+
+-- ============================================================
+-- Composite scores (full investment scoring model)
+-- Combines quality, momentum, valuation, supply chain position.
+-- Per ARCHITECTURE.md section 3, Layer 4 spec.
+-- ============================================================
+CREATE TABLE composite_scores (
+    id                    SERIAL PRIMARY KEY,
+    company_id            INTEGER NOT NULL REFERENCES companies(id),
+    score_date            DATE NOT NULL,
+    quality_score         FLOAT,                     -- 0 to 10
+    momentum_score        FLOAT,                     -- 0 to 10
+    valuation_score       FLOAT,                     -- 0 to 10
+    supply_chain_score    FLOAT,                     -- 0 to 10 (from company_scores.composite_sc_score)
+    composite_score       FLOAT,                     -- 0 to 100
+    UNIQUE(company_id, score_date)
+);
+
+-- ============================================================
+-- Portfolio positions (tracked investments)
+-- ============================================================
+CREATE TABLE portfolio (
+    id                          SERIAL PRIMARY KEY,
+    company_id                  INTEGER NOT NULL REFERENCES companies(id),
+    ticker                      VARCHAR(10),
+    action                      VARCHAR(10) NOT NULL,        -- 'buy', 'sell', 'trim', 'add'
+    shares                      FLOAT NOT NULL,
+    cost_basis                  FLOAT NOT NULL,
+    entry_date                  DATE NOT NULL,
+    thesis                      TEXT,
+    key_risks                   TEXT,
+    exit_conditions             TEXT,
+    composite_score_at_entry    FLOAT,
+    sc_signal_at_entry          TEXT,
+    is_open                     BOOLEAN DEFAULT TRUE,
+    created_at                  TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
 -- Section 3: Supply chain edges (relationships)
 -- Direction: supplier → customer (upstream to downstream)
 -- ============================================================
