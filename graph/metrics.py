@@ -13,17 +13,15 @@ Scores:
     run_all_scores(conn)    — pull data, score every company, write to company_scores
 """
 
-import os
 from datetime import date, timedelta
 from statistics import mean
 
 import networkx as nx
 import pandas as pd
-import psycopg2
 from scipy.stats import linregress
 from dotenv import load_dotenv
 
-from graph.build import build_graph, get_tier0_nodes
+from graph.build import build_graph
 
 load_dotenv()
 
@@ -37,20 +35,38 @@ def bottleneck_score(company_id, G):
     Score = (downstream_dependent_companies / max_possible)
             * (1 / avg_substitution_ease)
     Normalized to 0–10.
+
+    A downstream node n counts as "dependent" if ANY first-hop successor
+    of company_id has substitution_ease <= 2 AND has a directed path to n.
+    This captures multi-hop dependents behind hard-to-substitute edges.
     """
     downstream = nx.descendants(G, company_id)
-
-    # Count downstream nodes reachable through hard-to-substitute edges
-    dependent_count = 0
-    for n in downstream:
-        # Check if there's a direct edge from company_id to n
-        if G.has_edge(company_id, n):
-            if G[company_id][n].get('substitution_ease', 3) <= 2:
-                dependent_count += 1
+    if not downstream:
+        return 0.0
 
     edges = list(G.out_edges(company_id, data=True))
     if not edges:
         return 0.0
+
+    # Identify first-hop successors that are hard to substitute
+    hard_successors = [
+        succ for _, succ, data in edges
+        if data.get('substitution_ease', 3) <= 2
+    ]
+
+    # Count downstream nodes reachable through at least one hard-to-substitute
+    # first-hop edge. A node n is dependent if any hard_successor has a path to n,
+    # or if n is itself a hard_successor.
+    dependent_count = 0
+    for n in downstream:
+        if n in hard_successors:
+            dependent_count += 1
+            continue
+        for hs in hard_successors:
+            if nx.has_path(G, hs, n):
+                dependent_count += 1
+                break
+
     avg_sub_ease = mean([e[2].get('substitution_ease', 3) for e in edges]) or 3
 
     raw = dependent_count / avg_sub_ease

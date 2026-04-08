@@ -10,7 +10,7 @@ When a tier 0 event is detected (e.g. NextEra announces $7B capex increase):
 4. Writes alerts for any company whose composite_sc_score crosses 7.0
 """
 
-import os
+import sys
 from datetime import date
 
 import pandas as pd
@@ -156,3 +156,34 @@ def traverse_upstream_from_event(conn, company_id):
         print("No companies crossed the 7.0 composite threshold.")
 
     return alerts
+
+
+# ── CLI entry point ──────────────────────────────────────────────────────────
+
+def main():
+    """Run signal propagation from command line.
+
+    Usage:
+        python -m graph.signals <company_id>
+    """
+    if len(sys.argv) != 2:
+        print("Usage: python -m graph.signals <company_id>")
+        sys.exit(1)
+
+    try:
+        company_id = int(sys.argv[1])
+    except ValueError:
+        print(f"Error: company_id must be an integer, got '{sys.argv[1]}'")
+        sys.exit(1)
+
+    import os
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    try:
+        alerts = traverse_upstream_from_event(conn, company_id)
+        print(f"\n{len(alerts)} alert(s) fired.")
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

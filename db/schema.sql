@@ -23,6 +23,23 @@ CREATE TABLE companies (
 );
 
 -- ============================================================
+-- Filings (EDGAR 10-K and 10-Q downloads)
+-- Added for Phase 1 ingestion pipeline.
+-- ============================================================
+CREATE TABLE filings (
+    id                  SERIAL PRIMARY KEY,
+    company_id          INTEGER REFERENCES companies(id),
+    ticker              VARCHAR(10),
+    form_type           VARCHAR(10) NOT NULL,       -- '10-K', '10-Q'
+    filed_date          DATE,
+    period_of_report    DATE,
+    filename            VARCHAR(512),               -- original EDGAR filename
+    filepath            VARCHAR(512),               -- local path under data/filings/
+    processed           BOOLEAN DEFAULT FALSE,      -- has AI extraction run on this?
+    created_at          TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
 -- Section 3: Supply chain edges (relationships)
 -- Direction: supplier → customer (upstream to downstream)
 -- ============================================================
