@@ -33,10 +33,30 @@ CREATE TABLE filings (
     form_type           VARCHAR(10) NOT NULL,       -- '10-K', '10-Q'
     filed_date          DATE,
     period_of_report    DATE,
-    filename            VARCHAR(512),               -- original EDGAR filename
+    accession_number    VARCHAR(25),                -- EDGAR accession number e.g. '0000049196-24-000042'
+    filename            VARCHAR(512),               -- original EDGAR document name e.g. 'etn-20231231.htm'
     filepath            VARCHAR(512),               -- local path under data/filings/
     processed           BOOLEAN DEFAULT FALSE,      -- has AI extraction run on this?
     created_at          TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- Prices (daily OHLCV + market cap)
+-- Added for Phase 1 ingestion pipeline.
+-- ============================================================
+CREATE TABLE prices (
+    id                  SERIAL PRIMARY KEY,
+    company_id          INTEGER NOT NULL REFERENCES companies(id),
+    ticker              VARCHAR(10) NOT NULL,
+    date                DATE NOT NULL,
+    open                FLOAT,
+    high                FLOAT,
+    low                 FLOAT,
+    close               FLOAT,
+    volume              BIGINT,
+    market_cap          BIGINT,
+    created_at          TIMESTAMP DEFAULT NOW(),
+    UNIQUE(company_id, date)
 );
 
 -- ============================================================

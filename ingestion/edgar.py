@@ -29,10 +29,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 FILINGS_DIR = BASE_DIR / "data" / "filings"
 REQUEST_DELAY = 0.2  # 200ms between requests (SEC limit: 10/sec)
 
-USER_AGENT = os.environ.get(
-    "EDGAR_USER_AGENT",
-    "EquityPro Research contact@equitypro.io",
-)
+USER_AGENT = os.environ.get("EDGAR_USER_AGENT", "")
+
+_PLACEHOLDER = "equitypro.io"
+if not USER_AGENT or _PLACEHOLDER in USER_AGENT.lower():
+    raise RuntimeError(
+        "EDGAR_USER_AGENT is not set or still contains the placeholder. "
+        "The SEC requires a real name and email address. "
+        'Set EDGAR_USER_AGENT in your .env file, e.g.: EDGAR_USER_AGENT="John Doe john@example.com"'
+    )
+
 HEADERS = {"User-Agent": USER_AGENT}
 
 FORM_TYPES = ["10-K", "10-Q"]
@@ -185,7 +191,7 @@ def get_connection():
 def filing_exists(cur, company_id, accession_number):
     """Check if a filing is already stored in the DB."""
     cur.execute(
-        "SELECT id FROM filings WHERE company_id = %s AND filename = %s",
+        "SELECT id FROM filings WHERE company_id = %s AND accession_number = %s",
         (company_id, accession_number),
     )
     return cur.fetchone() is not None
@@ -197,8 +203,8 @@ def insert_filing(cur, company_id, ticker, filing, filepath):
         """
         INSERT INTO filings
             (company_id, ticker, form_type, filed_date, period_of_report,
-             filename, filepath, processed)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE)
+             accession_number, filename, filepath, processed)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, FALSE)
         """,
         (
             company_id,
@@ -207,6 +213,7 @@ def insert_filing(cur, company_id, ticker, filing, filepath):
             filing["filing_date"],
             filing["period_of_report"],
             filing["accession_number"],
+            filing["primary_document"],
             filepath,
         ),
     )
